@@ -17,6 +17,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [approvalFilter, setApprovalFilter] = useState("ALL");
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
 
@@ -162,16 +163,30 @@ export default function Admin() {
       let pData = null;
 
       try {
-        pData = await api.get("/products");
+        pData = await api.get("/products/admin/all");
       } catch (err) {
-        console.error("Products API error:", err);
+        console.error("Admin products API error:", err);
+
+        // Fallback: load the normal customer products endpoint.
+        // This keeps existing approved products visible even if the
+        // admin-all endpoint is temporarily unavailable.
+        try {
+          pData = await api.get("/products");
+        } catch (fallbackErr) {
+          console.error("Products fallback API error:", fallbackErr);
+          pData = null;
+        }
       }
 
       const apiProducts = Array.isArray(pData?.data)
         ? pData.data
-        : pData?.data?.products ||
-          pData?.data?.data ||
-          [];
+        : Array.isArray(pData?.data?.products)
+        ? pData.data.products
+        : Array.isArray(pData?.data?.data)
+        ? pData.data.data
+        : Array.isArray(pData?.data?.allProducts)
+        ? pData.data.allProducts
+        : [];
 
       const localProducts = JSON.parse(
         localStorage.getItem("jcs_products") || "[]"
@@ -989,6 +1004,61 @@ export default function Admin() {
             searchTerm.toLowerCase()
           )
     );
+
+  const approvalProducts = products.filter((p) => {
+    const status = String(p.approvalStatus || "APPROVED").toUpperCase();
+    if (approvalFilter === "ALL") return true;
+    return status === approvalFilter;
+  });
+
+  const pendingProducts = products.filter(
+    (p) => String(p.approvalStatus || "APPROVED").toUpperCase() === "PENDING"
+  );
+
+  const approvedProducts = products.filter(
+    (p) => String(p.approvalStatus || "APPROVED").toUpperCase() === "APPROVED"
+  );
+
+  const rejectedProducts = products.filter(
+    (p) => String(p.approvalStatus || "APPROVED").toUpperCase() === "REJECTED"
+  );
+
+  const handleApproveProduct = async (id) => {
+    try {
+      await api.put(`/products/admin/${encodeURIComponent(id)}/approve`);
+      await loadData();
+      alert("Product approved successfully.");
+    } catch (err) {
+      console.error("Approve product error:", err);
+      alert(err.response?.data?.message || "Failed to approve product.");
+    }
+  };
+
+  const handleRejectProduct = async (id) => {
+    const reason = window.prompt(
+      "Enter rejection reason:",
+      "Product information is incomplete"
+    );
+
+    if (reason === null) return;
+
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      alert("Please enter a rejection reason.");
+      return;
+    }
+
+    try {
+      await api.put(`/products/admin/${encodeURIComponent(id)}/reject`, {
+        rejectionReason: trimmedReason
+      });
+      await loadData();
+      alert("Product rejected successfully.");
+    } catch (err) {
+      console.error("Reject product error:", err);
+      alert(err.response?.data?.message || "Failed to reject product.");
+    }
+  };
 
   const filteredProducts =
     products.filter((p) =>
@@ -3284,73 +3354,90 @@ export default function Admin() {
           ) : activeTab === "products" ? (
             /* PRODUCTS */
             <div>
-              <div
-                style={{
-                  marginBottom:
-                    "20px"
-                }}
-              >
+              <div style={{ marginBottom: "20px" }}>
                 <input
                   type="text"
                   placeholder="Search products..."
-                  value={
-                    searchTerm
-                  }
-                  onChange={(e) =>
-                    setSearchTerm(
-                      e.target.value
-                    )
-                  }
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   style={{
-                    width:
-                      "100%",
-                    maxWidth:
-                      "350px",
-                    padding:
-                      "10px 14px",
-                    borderRadius:
-                      "6px",
-                    border:
-                      "1px solid #cbd5e1",
-                    boxSizing:
-                      "border-box",
-                    fontSize:
-                      "14px",
-                    background:
-                      "#fff"
+                    width: "100%",
+                    maxWidth: "350px",
+                    padding: "10px 14px",
+                    borderRadius: "6px",
+                    border: "1px solid #cbd5e1",
+                    boxSizing: "border-box",
+                    fontSize: "14px",
+                    background: "#fff"
                   }}
                 />
               </div>
 
+              {/* ================= PRODUCT INVENTORY ================= */}
               <h2
                 style={{
-                  fontSize:
-                    "22px",
-                  fontWeight:
-                    "bold",
-                  color:
-                    "#1e293b",
-                  marginBottom:
-                    "20px"
+                  fontSize: "22px",
+                  fontWeight: "bold",
+                  color: "#1e293b",
+                  marginBottom: "20px"
                 }}
               >
                 Product Inventory
               </h2>
 
-              {filteredProducts.length ===
-              0 ? (
+              {/* Approval filters are INSIDE Product Inventory */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  flexWrap: "wrap",
+                  marginBottom: "20px"
+                }}
+              >
+                {[
+                  ["ALL", `All Products (${products.length})`],
+                  ["PENDING", `Pending Approval (${pendingProducts.length})`],
+                  ["APPROVED", `Approved (${approvedProducts.length})`],
+                  ["REJECTED", `Rejected (${rejectedProducts.length})`]
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setApprovalFilter(value)}
+                    style={{
+                      padding: "9px 14px",
+                      borderRadius: "6px",
+                      border:
+                        approvalFilter === value
+                          ? "1px solid #2563eb"
+                          : "1px solid #cbd5e1",
+                      background:
+                        approvalFilter === value
+                          ? "#2563eb"
+                          : "#fff",
+                      color:
+                        approvalFilter === value
+                          ? "#fff"
+                          : "#475569",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      fontWeight: "600"
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {filteredProducts.length === 0 ? (
                 <div
                   style={{
-                    background:
-                      "#fff",
-                    padding:
-                      "30px",
-                    borderRadius:
-                      "8px",
-                    textAlign:
-                      "center",
-                    color:
-                      "#64748b"
+                    background: "#fff",
+                    padding: "30px",
+                    borderRadius: "8px",
+                    textAlign: "center",
+                    color: "#64748b",
+                    border: "1px solid #e2e8f0"
                   }}
                 >
                   No products found.
@@ -3358,162 +3445,126 @@ export default function Admin() {
               ) : (
                 <div
                   style={{
-                    background:
-                      "#fff",
-                    borderRadius:
-                      "10px",
-                    border:
-                      "1px solid #e2e8f0",
-                    overflow:
-                      "hidden"
+                    background: "#fff",
+                    borderRadius: "10px",
+                    border: "1px solid #e2e8f0",
+                    overflowX: "auto"
                   }}
                 >
                   <table
                     style={{
-                      width:
-                        "100%",
-                      borderCollapse:
-                        "collapse",
-                      textAlign:
-                        "left",
-                      fontSize:
-                        "14px"
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      textAlign: "left",
+                      fontSize: "14px"
                     }}
                   >
                     <thead>
                       <tr
                         style={{
-                          background:
-                            "#f8fafc",
-                          borderBottom:
-                            "1px solid #e2e8f0",
-                          color:
-                            "#475569"
+                          background: "#f8fafc",
+                          borderBottom: "1px solid #e2e8f0",
+                          color: "#475569"
                         }}
                       >
-                        <th
-                          style={{
-                            padding:
-                              "12px 16px"
-                          }}
-                        >
-                          Title
-                        </th>
-
-                        <th
-                          style={{
-                            padding:
-                              "12px 16px"
-                          }}
-                        >
-                          Price
-                        </th>
-
-                        <th
-                          style={{
-                            padding:
-                              "12px 16px"
-                          }}
-                        >
-                          Stock
-                        </th>
-
-                        <th
-                          style={{
-                            padding:
-                              "12px 16px",
-                            textAlign:
-                              "right"
-                          }}
-                        >
-                          Actions
-                        </th>
+                        <th style={{ padding: "12px 16px" }}>Title</th>
+                        <th style={{ padding: "12px 16px" }}>Brand</th>
+                        <th style={{ padding: "12px 16px" }}>Price</th>
+                        <th style={{ padding: "12px 16px" }}>Stock</th>
+                        <th style={{ padding: "12px 16px" }}>Status</th>
+                        <th style={{ padding: "12px 16px", textAlign: "right" }}>Actions</th>
                       </tr>
                     </thead>
-
                     <tbody>
-                      {filteredProducts.map(
-                        (p, i) => (
+                      {filteredProducts.map((p, i) => {
+                        const status = String(
+                          p.approvalStatus || "APPROVED"
+                        ).toUpperCase();
+
+                        const statusStyle =
+                          status === "PENDING"
+                            ? { background: "#fef3c7", color: "#92400e" }
+                            : status === "REJECTED"
+                            ? { background: "#fee2e2", color: "#991b1b" }
+                            : { background: "#dcfce7", color: "#166534" };
+
+                        return (
                           <tr
-                            key={i}
-                            style={{
-                              borderBottom:
-                                "1px solid #f1f5f9"
-                            }}
+                            key={p.id || p._id || i}
+                            style={{ borderBottom: "1px solid #f1f5f9" }}
                           >
                             <td
                               style={{
-                                padding:
-                                  "12px 16px",
-                                fontWeight:
-                                  "600",
-                                color:
-                                  "#1e293b"
+                                padding: "12px 16px",
+                                fontWeight: "600",
+                                color: "#1e293b"
                               }}
                             >
-                              {p.title ||
-                                p.name ||
-                                "Product"}
+                              {p.title || p.name || "Product"}
+                            </td>
+
+                            <td style={{ padding: "12px 16px", color: "#64748b" }}>
+                              {p.brand || "-"}
                             </td>
 
                             <td
                               style={{
-                                padding:
-                                  "12px 16px",
-                                color:
-                                  "#059669",
-                                fontWeight:
-                                  "bold"
+                                padding: "12px 16px",
+                                color: "#059669",
+                                fontWeight: "bold"
                               }}
                             >
                               ₹{p.price}
                             </td>
 
-                            <td
-                              style={{
-                                padding:
-                                  "12px 16px",
-                                color:
-                                  "#64748b"
-                              }}
-                            >
-                              {p.stock ||
-                                10}
+                            <td style={{ padding: "12px 16px", color: "#64748b" }}>
+                              {p.stock ?? 0}
+                            </td>
+
+                            <td style={{ padding: "12px 16px" }}>
+                              <span
+                                style={{
+                                  ...statusStyle,
+                                  padding: "5px 10px",
+                                  borderRadius: "999px",
+                                  fontSize: "12px",
+                                  fontWeight: "700"
+                                }}
+                              >
+                                {status}
+                              </span>
+
+                              {status === "REJECTED" && p.rejectionReason && (
+                                <div
+                                  style={{
+                                    marginTop: "6px",
+                                    fontSize: "12px",
+                                    color: "#991b1b",
+                                    maxWidth: "220px"
+                                  }}
+                                >
+                                  Reason: {p.rejectionReason}
+                                </div>
+                              )}
                             </td>
 
                             <td
                               style={{
-                                padding:
-                                  "12px 16px",
-                                textAlign:
-                                  "right",
-                                display:
-                                  "flex",
-                                gap:
-                                  "8px",
-                                justifyContent:
-                                  "flex-end"
+                                padding: "12px 16px",
+                                textAlign: "right",
+                                whiteSpace: "nowrap"
                               }}
                             >
                               <button
-                                onClick={() =>
-                                  handleOpenEdit(
-                                    p
-                                  )
-                                }
+                                onClick={() => handleOpenEdit(p)}
                                 style={{
-                                  background:
-                                    "#e2e8f0",
-                                  border:
-                                    "none",
-                                  padding:
-                                    "5px 10px",
-                                  borderRadius:
-                                    "4px",
-                                  cursor:
-                                    "pointer",
-                                  fontSize:
-                                    "12px"
+                                  background: "#e2e8f0",
+                                  border: "none",
+                                  padding: "5px 10px",
+                                  borderRadius: "4px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  marginRight: "8px"
                                 }}
                               >
                                 Edit
@@ -3521,35 +3572,66 @@ export default function Admin() {
 
                               <button
                                 onClick={() =>
-                                  handleDelete(
-                                    p.id ||
-                                      p._id,
-                                    "product"
-                                  )
+                                  handleDelete(p.id || p._id, "product")
                                 }
                                 style={{
-                                  background:
-                                    "#fee2e2",
-                                  color:
-                                    "#991b1b",
-                                  border:
-                                    "none",
-                                  padding:
-                                    "5px 10px",
-                                  borderRadius:
-                                    "4px",
-                                  cursor:
-                                    "pointer",
-                                  fontSize:
-                                    "12px"
+                                  background: "#fee2e2",
+                                  color: "#991b1b",
+                                  border: "none",
+                                  padding: "5px 10px",
+                                  borderRadius: "4px",
+                                  cursor: "pointer",
+                                  fontSize: "12px"
                                 }}
                               >
                                 Delete
                               </button>
+
+                              {status === "PENDING" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleApproveProduct(p.id || p._id)
+                                    }
+                                    style={{
+                                      background: "#dcfce7",
+                                      color: "#166534",
+                                      border: "none",
+                                      padding: "5px 10px",
+                                      borderRadius: "4px",
+                                      cursor: "pointer",
+                                      fontSize: "12px",
+                                      marginLeft: "8px"
+                                    }}
+                                  >
+                                    Approve
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRejectProduct(p.id || p._id)
+                                    }
+                                    style={{
+                                      background: "#fee2e2",
+                                      color: "#991b1b",
+                                      border: "none",
+                                      padding: "5px 10px",
+                                      borderRadius: "4px",
+                                      cursor: "pointer",
+                                      fontSize: "12px",
+                                      marginLeft: "8px"
+                                    }}
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
                             </td>
                           </tr>
-                        )
-                      )}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -9,31 +9,62 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 25000,
 });
 
-// Attach the current login JWT
+
+/* =========================================================
+   REQUEST INTERCEPTOR
+========================================================= */
+
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token =
+      localStorage.getItem("token");
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers =
+        config.headers || {};
+
+      config.headers.Authorization =
+        `Bearer ${token}`;
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+
+  (error) => {
+    return Promise.reject(error);
+  }
 );
+
+
+/* =========================================================
+   RESPONSE INTERCEPTOR
+========================================================= */
 
 api.interceptors.response.use(
   (response) => response,
+
   (error) => {
-    if (error.response?.status === 401) {
-      console.error("Authentication failed. Please login again.");
+    console.error(
+      "API error:",
+      error.response?.status,
+      error.response?.data ||
+        error.message
+    );
+
+    if (
+      error.response?.status === 401
+    ) {
+      console.error(
+        "Authentication failed. Please login again."
+      );
     }
 
     return Promise.reject(error);
   }
 );
+
 
 export default api;
