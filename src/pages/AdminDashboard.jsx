@@ -20,12 +20,15 @@ export default function AdminDashboard() {
     loadData();
   }, [activeTab]);
 
-  // Load real orders from your Node.js/Neon backend
+  // Load real orders from your Node.js/Neon backend with Authorization header
   const loadData = async () => {
     try {
-      const response = await fetch("http://localhost:5000/api/orders/admin/all", {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch("https://jcs-server-1.onrender.com/api/orders/admin/all", {
         headers: {
-          "user-email": "thotarushitha22@gmail.com"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         credentials: "include"
       });
@@ -55,13 +58,16 @@ export default function AdminDashboard() {
     }
   };
 
-  // Update order status directly in the Neon database via backend API
+  // Update order status directly in the Neon database via backend API with Authorization header
   const handleOrderStatusChange = async (orderId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/orders/${orderId}/status`, {
+      const token = localStorage.getItem("token");
+
+      const response = await fetch(`https://jcs-server-1.onrender.com/api/orders/${orderId}/status`, {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ status: newStatus }),
         credentials: "include"
