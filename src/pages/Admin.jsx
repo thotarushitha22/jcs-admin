@@ -20,6 +20,7 @@ export default function Admin() {
   const [approvalFilter, setApprovalFilter] = useState("ALL");
 
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null);
+  const [selectedProductDetails, setSelectedProductDetails] = useState(null);
 
   const [editingItem, setEditingItem] = useState(null);
   const [editForm, setEditForm] = useState({
@@ -44,21 +45,78 @@ export default function Admin() {
     qty: 1
   });
 
-  useEffect(() => {
-    if (!user) {
-      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  // =========================
+  // PERSISTENT ADMIN SESSION
+  // =========================
+  const readStoredUser = () => {
+    const keys = [
+      "jcs_user",
+      "user",
+      "adminUser"
+    ];
 
-      if (
-        storedUser.email !== "thotarushitha22@gmail.com" &&
-        storedUser.role !== "admin"
-      ) {
-        navigate("/login");
+    for (const key of keys) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) continue;
+
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          return parsed;
+        }
+      } catch (err) {
+        console.warn(`Could not read ${key}:`, err);
       }
-    } else if (
-      user.email !== "thotarushitha22@gmail.com" &&
-      user.role !== "admin"
-    ) {
-      navigate("/");
+    }
+
+    return {};
+  };
+
+  const readStoredToken = () => {
+    const keys = [
+      "jcs_token",
+      "token",
+      "adminToken",
+      "accessToken"
+    ];
+
+    for (const key of keys) {
+      const value = localStorage.getItem(key);
+      if (value && value !== "null" && value !== "undefined") {
+        return value;
+      }
+    }
+
+    return null;
+  };
+
+  useEffect(() => {
+    const storedUser = readStoredUser();
+    const storedToken = readStoredToken();
+
+    // Prefer an Admin identity from either AuthContext or persisted storage.
+    // This prevents a brief AuthContext reset during refresh from logging the
+    // already-authenticated Admin out.
+    const candidates = [user, storedUser].filter(Boolean);
+
+    const adminUser = candidates.find((candidate) => {
+      const email = String(candidate?.email || "")
+        .trim()
+        .toLowerCase();
+      const role = String(candidate?.role || "")
+        .trim()
+        .toLowerCase();
+
+      return (
+        role === "admin" ||
+        email === "thotarushitha22@gmail.com"
+      );
+    });
+
+    const isAdmin = Boolean(storedToken && adminUser);
+
+    if (!isAdmin) {
+      navigate("/login", { replace: true });
     }
   }, [user, navigate]);
 
@@ -69,6 +127,7 @@ export default function Admin() {
   useEffect(() => {
     setSearchTerm("");
     setSelectedOrderDetails(null);
+    setSelectedProductDetails(null);
   }, [activeTab]);
 
   // Remove JCS- prefix only for comparing order IDs
@@ -1022,6 +1081,34 @@ export default function Admin() {
   const rejectedProducts = products.filter(
     (p) => String(p.approvalStatus || "APPROVED").toUpperCase() === "REJECTED"
   );
+
+  const handleViewProductDetails = (product) => {
+    setSelectedProductDetails(product);
+  };
+
+  const closeProductDetails = () => {
+    setSelectedProductDetails(null);
+  };
+
+  const getProductImages = (product) => {
+    const rawImages = Array.isArray(product?.images)
+      ? product.images
+      : [];
+
+    const fallback = product?.image ? [product.image] : [];
+    const variantImages = Array.isArray(product?.variants?.images)
+      ? product.variants.images
+      : [];
+
+    return Array.from(
+      new Set(
+        [...rawImages, ...variantImages, ...fallback]
+          .filter(Boolean)
+          .map((image) => String(image).trim())
+          .filter(Boolean)
+      )
+    );
+  };
 
   const handleApproveProduct = async (id) => {
     try {
@@ -3354,7 +3441,32 @@ export default function Admin() {
           ) : activeTab === "products" ? (
             /* PRODUCTS */
             <div>
-              <div style={{ marginBottom: "20px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "15px",
+                  flexWrap: "wrap",
+                  marginBottom: "20px"
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      fontSize: "22px",
+                      fontWeight: "bold",
+                      color: "#1e293b",
+                      margin: "0 0 5px 0"
+                    }}
+                  >
+                    Merchant Products
+                  </h2>
+                  <div style={{ fontSize: "13px", color: "#64748b" }}>
+                    View merchant-uploaded images and complete product information.
+                  </div>
+                </div>
+
                 <input
                   type="text"
                   placeholder="Search products..."
@@ -3373,19 +3485,6 @@ export default function Admin() {
                 />
               </div>
 
-              {/* ================= PRODUCT INVENTORY ================= */}
-              <h2
-                style={{
-                  fontSize: "22px",
-                  fontWeight: "bold",
-                  color: "#1e293b",
-                  marginBottom: "20px"
-                }}
-              >
-                Product Inventory
-              </h2>
-
-              {/* Approval filters are INSIDE Product Inventory */}
               <div
                 style={{
                   display: "flex",
@@ -3412,13 +3511,9 @@ export default function Admin() {
                           ? "1px solid #2563eb"
                           : "1px solid #cbd5e1",
                       background:
-                        approvalFilter === value
-                          ? "#2563eb"
-                          : "#fff",
+                        approvalFilter === value ? "#2563eb" : "#fff",
                       color:
-                        approvalFilter === value
-                          ? "#fff"
-                          : "#475569",
+                        approvalFilter === value ? "#fff" : "#475569",
                       cursor: "pointer",
                       fontSize: "13px",
                       fontWeight: "600"
@@ -3467,8 +3562,9 @@ export default function Admin() {
                           color: "#475569"
                         }}
                       >
-                        <th style={{ padding: "12px 16px" }}>Title</th>
-                        <th style={{ padding: "12px 16px" }}>Brand</th>
+                        <th style={{ padding: "12px 16px" }}>Image</th>
+                        <th style={{ padding: "12px 16px" }}>Product</th>
+                        <th style={{ padding: "12px 16px" }}>Merchant</th>
                         <th style={{ padding: "12px 16px" }}>Price</th>
                         <th style={{ padding: "12px 16px" }}>Stock</th>
                         <th style={{ padding: "12px 16px" }}>Status</th>
@@ -3480,6 +3576,18 @@ export default function Admin() {
                         const status = String(
                           p.approvalStatus || "APPROVED"
                         ).toUpperCase();
+                        const images = getProductImages(p);
+                        const merchant =
+                          p.merchant?.store_name ||
+                          p.merchant?.storeName ||
+                          p.merchant?.name ||
+                          p.merchantName ||
+                          p.store_name ||
+                          p.createdByMerchant?.store_name ||
+                          p.merchant?.email ||
+                          p.merchantId ||
+                          p.createdBy ||
+                          "-";
 
                         const statusStyle =
                           status === "PENDING"
@@ -3493,18 +3601,61 @@ export default function Admin() {
                             key={p.id || p._id || i}
                             style={{ borderBottom: "1px solid #f1f5f9" }}
                           >
-                            <td
-                              style={{
-                                padding: "12px 16px",
-                                fontWeight: "600",
-                                color: "#1e293b"
-                              }}
-                            >
-                              {p.title || p.name || "Product"}
+                            <td style={{ padding: "10px 16px" }}>
+                              {images.length > 0 ? (
+                                <div
+                                  style={{
+                                    width: "58px",
+                                    height: "58px",
+                                    borderRadius: "8px",
+                                    overflow: "hidden",
+                                    border: "1px solid #e2e8f0",
+                                    background: "#f8fafc"
+                                  }}
+                                >
+                                  <img
+                                    src={images[0]}
+                                    alt={p.title || "Product"}
+                                    style={{
+                                      width: "100%",
+                                      height: "100%",
+                                      objectFit: "contain"
+                                    }}
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = "none";
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div
+                                  style={{
+                                    width: "58px",
+                                    height: "58px",
+                                    borderRadius: "8px",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    background: "#f1f5f9",
+                                    color: "#94a3b8",
+                                    fontSize: "11px"
+                                  }}
+                                >
+                                  No image
+                                </div>
+                              )}
                             </td>
 
-                            <td style={{ padding: "12px 16px", color: "#64748b" }}>
-                              {p.brand || "-"}
+                            <td style={{ padding: "12px 16px" }}>
+                              <div style={{ fontWeight: "700", color: "#1e293b" }}>
+                                {p.title || p.name || "Product"}
+                              </div>
+                              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>
+                                {p.brand || "-"}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: "12px 16px", color: "#475569" }}>
+                              {merchant}
                             </td>
 
                             <td
@@ -3514,7 +3665,7 @@ export default function Admin() {
                                 fontWeight: "bold"
                               }}
                             >
-                              ₹{p.price}
+                              ₹{p.price ?? "-"}
                             </td>
 
                             <td style={{ padding: "12px 16px", color: "#64748b" }}>
@@ -3533,19 +3684,6 @@ export default function Admin() {
                               >
                                 {status}
                               </span>
-
-                              {status === "REJECTED" && p.rejectionReason && (
-                                <div
-                                  style={{
-                                    marginTop: "6px",
-                                    fontSize: "12px",
-                                    color: "#991b1b",
-                                    maxWidth: "220px"
-                                  }}
-                                >
-                                  Reason: {p.rejectionReason}
-                                </div>
-                              )}
                             </td>
 
                             <td
@@ -3556,30 +3694,48 @@ export default function Admin() {
                               }}
                             >
                               <button
+                                type="button"
+                                onClick={() => handleViewProductDetails(p)}
+                                style={{
+                                  background: "#2563eb",
+                                  color: "#fff",
+                                  border: "none",
+                                  padding: "7px 11px",
+                                  borderRadius: "5px",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                  marginRight: "7px"
+                                }}
+                              >
+                                View Details
+                              </button>
+
+                              <button
+                                type="button"
                                 onClick={() => handleOpenEdit(p)}
                                 style={{
                                   background: "#e2e8f0",
                                   border: "none",
-                                  padding: "5px 10px",
-                                  borderRadius: "4px",
+                                  padding: "7px 11px",
+                                  borderRadius: "5px",
                                   cursor: "pointer",
                                   fontSize: "12px",
-                                  marginRight: "8px"
+                                  marginRight: "7px"
                                 }}
                               >
                                 Edit
                               </button>
 
                               <button
-                                onClick={() =>
-                                  handleDelete(p.id || p._id, "product")
-                                }
+                                type="button"
+                                onClick={() => handleDelete(p.id || p._id, "product")}
                                 style={{
                                   background: "#fee2e2",
                                   color: "#991b1b",
                                   border: "none",
-                                  padding: "5px 10px",
-                                  borderRadius: "4px",
+                                  padding: "7px 11px",
+                                  borderRadius: "5px",
                                   cursor: "pointer",
                                   fontSize: "12px"
                                 }}
@@ -3591,18 +3747,16 @@ export default function Admin() {
                                 <>
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      handleApproveProduct(p.id || p._id)
-                                    }
+                                    onClick={() => handleApproveProduct(p.id || p._id)}
                                     style={{
                                       background: "#dcfce7",
                                       color: "#166534",
                                       border: "none",
-                                      padding: "5px 10px",
-                                      borderRadius: "4px",
+                                      padding: "7px 11px",
+                                      borderRadius: "5px",
                                       cursor: "pointer",
                                       fontSize: "12px",
-                                      marginLeft: "8px"
+                                      marginLeft: "7px"
                                     }}
                                   >
                                     Approve
@@ -3610,18 +3764,16 @@ export default function Admin() {
 
                                   <button
                                     type="button"
-                                    onClick={() =>
-                                      handleRejectProduct(p.id || p._id)
-                                    }
+                                    onClick={() => handleRejectProduct(p.id || p._id)}
                                     style={{
                                       background: "#fee2e2",
                                       color: "#991b1b",
                                       border: "none",
-                                      padding: "5px 10px",
-                                      borderRadius: "4px",
+                                      padding: "7px 11px",
+                                      borderRadius: "5px",
                                       cursor: "pointer",
                                       fontSize: "12px",
-                                      marginLeft: "8px"
+                                      marginLeft: "7px"
                                     }}
                                   >
                                     Reject
@@ -3634,6 +3786,517 @@ export default function Admin() {
                       })}
                     </tbody>
                   </table>
+                </div>
+              )}
+
+              {/* ================= PRODUCT DETAILS MODAL ================= */}
+              {selectedProductDetails && (
+                <div
+                  onClick={closeProductDetails}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    background: "rgba(15,23,42,0.65)",
+                    zIndex: 9999,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "20px",
+                    boxSizing: "border-box"
+                  }}
+                >
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      width: "100%",
+                      maxWidth: "1100px",
+                      maxHeight: "92vh",
+                      overflowY: "auto",
+                      background: "#fff",
+                      borderRadius: "12px",
+                      boxShadow: "0 25px 60px rgba(0,0,0,0.25)"
+                    }}
+                  >
+                    {(() => {
+                      const p = selectedProductDetails;
+                      const images = getProductImages(p);
+                      const highlights = Array.isArray(p.highlights)
+                        ? p.highlights
+                        : String(p.highlights || "")
+                            .split(/\r?\n/)
+                            .map((x) => x.trim())
+                            .filter(Boolean)
+                            .map((text) => ({ text }));
+
+                      const storage =
+                        p.storage || p.variants?.storage || "-";
+                      const colours =
+                        p.colour ||
+                        p.colors ||
+                        p.variants?.colors ||
+                        "-";
+                      const merchantName =
+                        p.merchant?.store_name ||
+                        p.merchant?.storeName ||
+                        p.merchant?.name ||
+                        p.merchantName ||
+                        p.store_name ||
+                        "-";
+                      const merchantEmail =
+                        p.merchant?.email ||
+                        p.merchantEmail ||
+                        "-";
+
+                      const details = [
+                        ["ID", p.id || p._id],
+                        ["Title", p.title || p.name],
+                        ["Brand", p.brand],
+                        ["Category", p.category?.name || p.categoryName || p.categoryId],
+                        ["SKU", p.sku],
+                        ["Model", p.model],
+                        ["Price", p.price != null ? `₹${p.price}` : null],
+                        ["MRP", p.mrp != null ? `₹${p.mrp}` : null],
+                        ["Stock", p.stock],
+                        ["MOQ", p.moq],
+                        ["GST", p.gstPercent != null ? `${p.gstPercent}%` : null],
+                        ["Colour", Array.isArray(colours) ? colours.join(", ") : colours],
+                        ["Storage", Array.isArray(storage) ? storage.join(", ") : storage],
+                        ["RAM", p.ram],
+                        ["Processor", p.processor],
+                        ["Battery", p.battery],
+                        ["Network Generation", p.networkGen],
+                        ["SIM Slots", p.simSlots],
+                        ["Screen Size", p.screenSize],
+                        ["Rear Camera", p.rearCamera],
+                        ["Front Camera", p.frontCamera],
+                        ["Security Features", p.securityFeatures],
+                        ["Weight", p.weight],
+                        ["Water Resistant", p.waterResistant],
+                        ["Fast Charging", p.fastCharging],
+                        ["Warranty", p.warranty],
+                        ["Approval Status", p.approvalStatus],
+                        ["Approved By", p.approvedBy],
+                        ["Approved At", p.approvedAt],
+                        ["Rejection Reason", p.rejectionReason],
+                        ["Merchant ID", p.merchantId],
+                        ["Created By", p.createdBy],
+                        ["Created At", p.createdAt || p.created_at],
+                        ["Updated At", p.updatedAt || p.updated_at]
+                      ];
+
+                      const formatAllValue = (value) => {
+                        if (value === null || value === undefined || value === "") return "-";
+                        if (Array.isArray(value)) {
+                          return value.length === 0 ? "[]" : JSON.stringify(value, null, 2);
+                        }
+                        if (typeof value === "object") {
+                          return JSON.stringify(value, null, 2);
+                        }
+                        return String(value);
+                      };
+
+                      const allProductFields = Object.entries(p).sort(([a], [b]) =>
+                        a.localeCompare(b)
+                      );
+
+                      const status = String(p.approvalStatus || "APPROVED").toUpperCase();
+                      const statusStyle =
+                        status === "PENDING"
+                          ? { background: "#fef3c7", color: "#92400e" }
+                          : status === "REJECTED"
+                          ? { background: "#fee2e2", color: "#991b1b" }
+                          : { background: "#dcfce7", color: "#166534" };
+
+                      return (
+                        <div>
+                          <div
+                            style={{
+                              position: "sticky",
+                              top: 0,
+                              zIndex: 2,
+                              background: "#0c2340",
+                              color: "#fff",
+                              padding: "16px 20px",
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center"
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontSize: "20px", fontWeight: "700" }}>
+                                {p.title || p.name || "Product Details"}
+                              </div>
+                              <div style={{ fontSize: "12px", color: "#cbd5e1", marginTop: "3px" }}>
+                                Merchant product review
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={closeProductDetails}
+                              style={{
+                                background: "rgba(255,255,255,0.12)",
+                                color: "#fff",
+                                border: "none",
+                                borderRadius: "6px",
+                                padding: "8px 12px",
+                                cursor: "pointer",
+                                fontSize: "18px"
+                              }}
+                            >
+                              ×
+                            </button>
+                          </div>
+
+                          <div style={{ padding: "22px" }}>
+                            {/* Merchant information */}
+                            <div
+                              style={{
+                                background: "#f8fafc",
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                padding: "16px",
+                                marginBottom: "20px"
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "10px" }}>
+                                Merchant Information
+                              </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                  gap: "10px"
+                                }}
+                              >
+                                <div><b>Merchant:</b> {merchantName}</div>
+                                <div><b>Email:</b> {merchantEmail}</div>
+                                <div><b>Merchant ID:</b> {p.merchantId || "-"}</div>
+                                <div><b>Created By:</b> {p.createdBy || "-"}</div>
+                                <div>
+                                  <b>Status:</b>{" "}
+                                  <span
+                                    style={{
+                                      ...statusStyle,
+                                      padding: "4px 9px",
+                                      borderRadius: "999px",
+                                      fontSize: "12px",
+                                      fontWeight: "700"
+                                    }}
+                                  >
+                                    {status}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Gallery */}
+                            <div
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                padding: "16px",
+                                marginBottom: "20px"
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "12px" }}>
+                                Product Images ({images.length})
+                              </div>
+
+                              {images.length > 0 ? (
+                                <div
+                                  style={{
+                                    display: "grid",
+                                    gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+                                    gap: "12px"
+                                  }}
+                                >
+                                  {images.map((image, index) => (
+                                    <div
+                                      key={`${image}-${index}`}
+                                      style={{
+                                        height: "170px",
+                                        border: "1px solid #e2e8f0",
+                                        borderRadius: "8px",
+                                        overflow: "hidden",
+                                        background: "#f8fafc"
+                                      }}
+                                    >
+                                      <img
+                                        src={image}
+                                        alt={`${p.title || "Product"} ${index + 1}`}
+                                        style={{
+                                          width: "100%",
+                                          height: "100%",
+                                          objectFit: "contain"
+                                        }}
+                                        onError={(e) => {
+                                          e.currentTarget.style.display = "none";
+                                        }}
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div
+                                  style={{
+                                    padding: "30px",
+                                    textAlign: "center",
+                                    background: "#f8fafc",
+                                    color: "#64748b",
+                                    borderRadius: "8px"
+                                  }}
+                                >
+                                  No merchant images uploaded for this product.
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Product details */}
+                            <div
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                padding: "16px",
+                                marginBottom: "20px"
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "12px" }}>
+                                Product Details & Specifications
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                                  gap: "10px"
+                                }}
+                              >
+                                {details.map(([label, value]) => (
+                                  <div
+                                    key={label}
+                                    style={{
+                                      background: "#f8fafc",
+                                      borderRadius: "7px",
+                                      padding: "10px 12px",
+                                      border: "1px solid #f1f5f9"
+                                    }}
+                                  >
+                                    <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "3px" }}>
+                                      {label}
+                                    </div>
+                                    <div style={{ fontSize: "13px", color: "#0f172a", fontWeight: "600", wordBreak: "break-word" }}>
+                                      {value !== undefined && value !== null && String(value).trim() !== ""
+                                        ? String(value)
+                                        : "-"}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Overview */}
+                            <div
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                padding: "16px",
+                                marginBottom: "20px"
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "8px" }}>
+                                Overview / Description
+                              </div>
+                              <div style={{ color: "#475569", lineHeight: 1.6, whiteSpace: "pre-wrap", fontSize: "14px" }}>
+                                {p.overview || p.description || "No overview or description provided."}
+                              </div>
+                            </div>
+
+                            {/* Highlights */}
+                            <div
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                padding: "16px",
+                                marginBottom: "20px"
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "10px" }}>
+                                Product Highlights
+                              </div>
+                              {highlights.length > 0 ? (
+                                <ul style={{ margin: 0, paddingLeft: "20px", color: "#475569", lineHeight: 1.7 }}>
+                                  {highlights.map((item, index) => (
+                                    <li key={index}>
+                                      {typeof item === "string" ? item : item.text || item.title || ""}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div style={{ color: "#64748b" }}>No highlights provided.</div>
+                              )}
+                            </div>
+
+                            {/* ALL STORED PRODUCT DATA */}
+                            <div
+                              style={{
+                                border: "1px solid #e2e8f0",
+                                borderRadius: "10px",
+                                padding: "16px",
+                                marginBottom: "20px"
+                              }}
+                            >
+                              <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "6px" }}>
+                                All Product Data ({allProductFields.length} fields)
+                              </div>
+                              <div style={{ fontSize: "12px", color: "#64748b", marginBottom: "12px" }}>
+                                Every field returned by the backend is shown below, including nested objects and arrays.
+                              </div>
+
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                                  gap: "10px"
+                                }}
+                              >
+                                {allProductFields.map(([key, value]) => (
+                                  <div
+                                    key={key}
+                                    style={{
+                                      background: "#f8fafc",
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: "8px",
+                                      padding: "10px",
+                                      minWidth: 0
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: "11px",
+                                        fontWeight: "700",
+                                        color: "#475569",
+                                        marginBottom: "6px"
+                                      }}
+                                    >
+                                      {key}
+                                    </div>
+                                    <pre
+                                      style={{
+                                        margin: 0,
+                                        whiteSpace: "pre-wrap",
+                                        wordBreak: "break-word",
+                                        fontFamily: "inherit",
+                                        fontSize: "12px",
+                                        lineHeight: 1.45,
+                                        color: "#0f172a"
+                                      }}
+                                    >
+                                      {formatAllValue(value)}
+                                    </pre>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <details style={{ marginTop: "14px" }}>
+                                <summary
+                                  style={{
+                                    cursor: "pointer",
+                                    fontWeight: "700",
+                                    color: "#2563eb",
+                                    fontSize: "13px"
+                                  }}
+                                >
+                                  Show Complete Product JSON
+                                </summary>
+                                <pre
+                                  style={{
+                                    marginTop: "10px",
+                                    padding: "14px",
+                                    background: "#0f172a",
+                                    color: "#e2e8f0",
+                                    borderRadius: "8px",
+                                    overflowX: "auto",
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-word",
+                                    fontSize: "12px",
+                                    lineHeight: 1.5
+                                  }}
+                                >
+                                  {JSON.stringify(p, null, 2)}
+                                </pre>
+                              </details>
+                            </div>
+
+                            {/* Actions */}
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: "10px",
+                                flexWrap: "wrap"
+                              }}
+                            >
+                              {status === "PENDING" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      closeProductDetails();
+                                      handleApproveProduct(p.id || p._id);
+                                    }}
+                                    style={{
+                                      background: "#16a34a",
+                                      color: "#fff",
+                                      border: "none",
+                                      padding: "10px 16px",
+                                      borderRadius: "6px",
+                                      cursor: "pointer",
+                                      fontWeight: "600"
+                                    }}
+                                  >
+                                    Approve Product
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      closeProductDetails();
+                                      handleRejectProduct(p.id || p._id);
+                                    }}
+                                    style={{
+                                      background: "#dc2626",
+                                      color: "#fff",
+                                      border: "none",
+                                      padding: "10px 16px",
+                                      borderRadius: "6px",
+                                      cursor: "pointer",
+                                      fontWeight: "600"
+                                    }}
+                                  >
+                                    Reject Product
+                                  </button>
+                                </>
+                              )}
+                              <button
+                                type="button"
+                                onClick={closeProductDetails}
+                                style={{
+                                  background: "#e2e8f0",
+                                  color: "#1e293b",
+                                  border: "none",
+                                  padding: "10px 16px",
+                                  borderRadius: "6px",
+                                  cursor: "pointer",
+                                  fontWeight: "600"
+                                }}
+                              >
+                                Close
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               )}
             </div>
