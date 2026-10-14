@@ -3,6 +3,49 @@ import { useNavigate } from "react-router-dom";
 import api from "../services/api";
 import { useAuth } from "../context/AuthContext";
 
+
+/* =========================================================
+   THE 10 TRACKING STOPS
+   (the same list is used in the order page, merchant
+   dashboard and admin dashboard)
+========================================================= */
+
+const ORDER_STOPS = [
+  { status: "PENDING", label: "1. Order placed" },
+  { status: "PAID", label: "2. Payment confirmed" },
+  { status: "PROCESSING", label: "3. Packed & quality checked" },
+  { status: "SHIPPED", label: "4. Shipped" },
+  { status: "HUB_1", label: "5. Arrived at hub - Hyderabad" },
+  { status: "HUB_2", label: "6. In transit - Nagpur" },
+  { status: "HUB_3", label: "7. Arrived at hub - Surat" },
+  { status: "HUB_4", label: "8. Arrived at hub - Delhi" },
+  { status: "OUT_FOR_DELIVERY", label: "9. Out for delivery" },
+  { status: "DELIVERED", label: "10. Delivered" },
+];
+
+const STATUS_ALIASES = {
+  PLACED: "PENDING",
+  CONFIRMED: "PROCESSING",
+  ACCEPTED: "PROCESSING",
+  PACKED: "PROCESSING",
+  DISPATCHED: "SHIPPED",
+  COMPLETED: "DELIVERED",
+};
+
+const normalizeStopStatus = (raw) => {
+  const value = String(raw || "PENDING")
+    .trim()
+    .toUpperCase();
+  return STATUS_ALIASES[value] || value;
+};
+
+const stopLabel = (raw) => {
+  const code = normalizeStopStatus(raw);
+  if (code === "CANCELLED") return "Cancelled";
+  const stop = ORDER_STOPS.find((s) => s.status === code);
+  return stop ? stop.label : code;
+};
+
 export default function Admin() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1551,7 +1594,7 @@ export default function Admin() {
               }}
               style={{
                 background:
-                  "linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)",
+                  "linear-gradient(135deg, #1e40af 0%, #2563eb 100%)",
                 borderRadius: "10px",
                 padding: "20px",
                 color: "#fff",
@@ -1588,7 +1631,7 @@ export default function Admin() {
               }}
               style={{
                 background:
-                  "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                  "linear-gradient(135deg, #0f766e 0%, #0d9488 100%)",
                 borderRadius: "10px",
                 padding: "20px",
                 color: "#fff",
@@ -1625,7 +1668,7 @@ export default function Admin() {
               }}
               style={{
                 background:
-                  "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+                  "linear-gradient(135deg, #334155 0%, #475569 100%)",
                 borderRadius: "10px",
                 padding: "20px",
                 color: "#fff",
@@ -1662,7 +1705,7 @@ export default function Admin() {
               }}
               style={{
                 background:
-                  "linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)",
+                  "linear-gradient(135deg, #1e3a5f 0%, #2f5d8f 100%)",
                 borderRadius: "10px",
                 padding: "20px",
                 color: "#fff",
@@ -2764,17 +2807,11 @@ export default function Admin() {
                                     "uppercase"
                                 }}
                               >
-                                {String(
-                                  o.status ||
-                                    "SHIPPED"
-                                ).toUpperCase()}
+                                {stopLabel(o.status)}
                               </span>
 
                               <select
-                                value={String(
-                                  o.status ||
-                                    "SHIPPED"
-                                ).toUpperCase()}
+                                value={normalizeStopStatus(o.status)}
                                 onChange={(
                                   e
                                 ) =>
@@ -2801,26 +2838,19 @@ export default function Admin() {
                                     "500"
                                 }}
                               >
-                                <option value="PENDING">
-                                  PENDING
-                                </option>
+                                {ORDER_STOPS.map((stop) => (
+                            <option
+                              key={stop.status}
+                              value={stop.status}
+                            >
+                              {stop.label}
+                            </option>
+                          ))}
 
-                                <option value="PROCESSING">
-                                  PROCESSING
-                                </option>
-
-                                <option value="SHIPPED">
-                                  SHIPPED
-                                </option>
-
-                                <option value="DELIVERED">
-                                  DELIVERED
-                                </option>
-
-                                <option value="CANCELLED">
-                                  CANCELLED
-                                </option>
-                              </select>
+                          <option value="CANCELLED">
+                            Cancelled
+                          </option>
+                        </select>
                             </div>
                           </div>
 
