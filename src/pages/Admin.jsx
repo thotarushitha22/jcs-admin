@@ -149,6 +149,31 @@ const STATUS_ALIASES = { PLACED: "PENDING", CONFIRMED: "PROCESSING", ACCEPTED: "
 const normalizeStopStatus = (raw) => STATUS_ALIASES[String(raw || "PENDING").trim().toUpperCase()] || String(raw || "PENDING").trim().toUpperCase();
 const stopLabel = (raw) => { const code = normalizeStopStatus(raw); if (code === "CANCELLED") return "Cancelled"; const stop = ORDER_STOPS.find((s) => s.status === code); return stop ? stop.label : code; };
 
+function TeamProgress({ status }) {
+  const s = String(status || "").toUpperCase();
+
+  // Visual-only indicators; order status and API logic remain unchanged.
+  const warehouseDone = ["PROCESSING", "SHIPPED", "DISPATCHED", "HUB_1", "HUB_2", "HUB_3", "HUB_4", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"].includes(s);
+  const dispatchDone = ["DISPATCHED", "SHIPPED", "HUB_1", "HUB_2", "HUB_3", "HUB_4", "OUT_FOR_DELIVERY", "DELIVERED", "COMPLETED"].includes(s);
+  const deliveryDone = ["DELIVERED", "COMPLETED"].includes(s);
+
+  const teams = [
+    { label: "Warehouse", done: warehouseDone },
+    { label: "Dispatch", done: dispatchDone },
+    { label: "Delivery", done: deliveryDone },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "15px", marginTop: "10px", padding: "10px", background: "#f8fafc", borderRadius: "6px", border: "1px solid #e2e8f0" }}>
+      {teams.map((team) => (
+        <div key={team.label} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: "600", color: team.done ? "#16a34a" : "#94a3b8" }}>
+          <span>{team.done ? "✅" : "⏳"}</span> {team.label}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Admin() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -469,6 +494,7 @@ export default function Admin() {
                       <span style={{ ...getStatusBadgeStyle(selectedOrderDetails.status), padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "bold" }}>{String(selectedOrderDetails.status || "SHIPPED").toUpperCase()}</span>
                       <span style={{ fontSize: "13px", color: "#475569" }}>via {selectedOrderDetails.payment_method}</span>
                     </div>
+                    <TeamProgress status={selectedOrderDetails.status} />
                   </div>
                 </div>
 
@@ -558,6 +584,7 @@ export default function Admin() {
                             </select>
                           </div>
                         </div>
+                        <TeamProgress status={o.status} />
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "15px" }}>
                           <div style={{ fontSize: "14px", fontWeight: "600", color: "#334155" }}>Total: <span style={{ color: "#2563eb", fontWeight: "bold" }}>₹{Number(o.total_amount || 0).toLocaleString()}</span></div>
                           <button onClick={() => setSelectedOrderDetails(o)} style={{ background: "#f1f5f9", color: "#334155", border: "none", padding: "6px 14px", borderRadius: "6px", fontSize: "13px", fontWeight: "600", cursor: "pointer" }}>View Details &rarr;</button>
