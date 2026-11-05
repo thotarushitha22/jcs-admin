@@ -463,23 +463,33 @@ export default function Admin() {
             </p>
           </div>
 
+          {/* 🚨 UPDATED: Colored KPI Boxes */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "20px", marginBottom: "32px" }}>
-            <div onClick={() => handleTabChange("users")} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
-              <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600", marginBottom: "8px" }}>Total Users</div>
-              <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a" }}>{users.length}</div>
+            
+            {/* Total Users - Soft Blue */}
+            <div onClick={() => handleTabChange("users")} style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+              <div style={{ fontSize: "13px", color: "#1e40af", fontWeight: "700", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Users</div>
+              <div style={{ fontSize: "32px", fontWeight: "800", color: "#1e3a8a" }}>{users.length}</div>
             </div>
-            <div onClick={() => handleTabChange("merchants")} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
-              <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600", marginBottom: "8px" }}>Total Merchants</div>
-              <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a" }}>{merchants.length}</div>
+
+            {/* Total Merchants - Soft Emerald */}
+            <div onClick={() => handleTabChange("merchants")} style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+              <div style={{ fontSize: "13px", color: "#047857", fontWeight: "700", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total Merchants</div>
+              <div style={{ fontSize: "32px", fontWeight: "800", color: "#064e3b" }}>{merchants.length}</div>
             </div>
-            <div onClick={() => handleTabChange("delivery_partners")} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
-              <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600", marginBottom: "8px" }}>Delivery Agents</div>
-              <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a" }}>{deliveryPartners.length}</div>
+
+            {/* Delivery Agents - Soft Amber */}
+            <div onClick={() => handleTabChange("delivery_partners")} style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+              <div style={{ fontSize: "13px", color: "#b45309", fontWeight: "700", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Delivery Agents</div>
+              <div style={{ fontSize: "32px", fontWeight: "800", color: "#78350f" }}>{deliveryPartners.length}</div>
             </div>
-            <div onClick={() => handleTabChange("orders")} style={{ background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
-              <div style={{ fontSize: "13px", color: "#64748b", fontWeight: "600", marginBottom: "8px" }}>System Orders</div>
-              <div style={{ fontSize: "28px", fontWeight: "800", color: "#0f172a" }}>{orders.length}</div>
+
+            {/* System Orders - Soft Purple */}
+            <div onClick={() => handleTabChange("orders")} style={{ background: "#f5f3ff", border: "1px solid #ddd6fe", borderRadius: "12px", padding: "20px", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.02)" }}>
+              <div style={{ fontSize: "13px", color: "#6d28d9", fontWeight: "700", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.5px" }}>System Orders</div>
+              <div style={{ fontSize: "32px", fontWeight: "800", color: "#4c1d95" }}>{orders.length}</div>
             </div>
+
           </div>
 
           {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#991b1b", padding: "12px 20px", borderRadius: "8px", marginBottom: "20px", fontSize: "14px" }}>{error}</div>}
@@ -778,42 +788,84 @@ export default function Admin() {
         </div>
       </div>
 
-      {/* PRINTABLE INVOICE */}
-      {selectedOrderDetails && (
-        <div className="invoice-print">
-          <div className="inv-top">
-            <div>
-              <h1 className="inv-brand">JCS Global</h1>
-              <div className="inv-seller">
-                <strong>{SELLER.name}</strong>
-                {SELLER.addressLines.map((line) => <div key={line}>{line}</div>)}
-                <div>{SELLER.email} | {SELLER.phone}</div>
-              </div>
-            </div>
-            <div className="inv-meta">
-              <h2>TAX INVOICE</h2>
-              <div><span>Invoice no:</span> INV-{selectedOrderDetails.order_id}</div>
-              <div><span>Order no:</span> {selectedOrderDetails.order_id}</div>
-              <div><span>Date:</span> {new Date(selectedOrderDetails.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</div>
-              <div><span>Payment:</span> {String(selectedOrderDetails.payment_method).toUpperCase()}</div>
-            </div>
+      {/* ================= PRODUCT DETAILS MODAL ================= */}
+      {selectedProductDetails && (
+        <div onClick={() => setSelectedProductDetails(null)} style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.65)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", boxSizing: "border-box" }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: "100%", maxWidth: "1100px", maxHeight: "92vh", overflowY: "auto", background: "#fff", borderRadius: "12px", boxShadow: "0 25px 60px rgba(0,0,0,0.25)" }}>
+            {(() => {
+              const p = selectedProductDetails;
+              const images = getProductImages(p);
+              const highlights = Array.isArray(p.highlights) ? p.highlights : String(p.highlights || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean).map((text) => ({ text }));
+              const storage = p.storage || p.variants?.storage || "-";
+              const colours = p.colour || p.colors || p.variants?.colors || "-";
+              
+             // 🚨 FRONTEND FALLBACK: Look up the merchant from the loaded users/merchants list
+const foundMerchant = [...users, ...merchants].find(u => 
+  String(u.id || u._id) === String(p.merchantId || p.merchant_id)
+);
+
+const merchantName = 
+  p.merchant?.store_name || p.merchant?.storeName || p.merchant?.name || 
+  p.merchant_name || p.merchantName || p.store_name || 
+  foundMerchant?.store_name || foundMerchant?.name || 
+  "Unknown Merchant";
+  
+const merchantEmail = 
+  p.merchant?.email || p.merchant_email || 
+  p.merchantEmail || 
+  foundMerchant?.email || "No Email";
+  
+              const details = [["ID", p.id || p._id], ["Title", p.title || p.name], ["Brand", p.brand], ["Category", p.category?.name || p.categoryName || p.categoryId], ["SKU", p.sku], ["Model", p.model], ["Price", p.price != null ? `₹${p.price}` : null], ["MRP", p.mrp != null ? `₹${p.mrp}` : null], ["Stock", p.stock], ["MOQ", p.moq], ["GST", p.gstPercent != null ? `${p.gstPercent}%` : null], ["Colour", Array.isArray(colours) ? colours.join(", ") : colours], ["Storage", Array.isArray(storage) ? storage.join(", ") : storage], ["RAM", p.ram], ["Processor", p.processor], ["Battery", p.battery], ["Network Generation", p.networkGen], ["SIM Slots", p.simSlots], ["Screen Size", p.screenSize], ["Rear Camera", p.rearCamera], ["Front Camera", p.frontCamera], ["Security Features", p.securityFeatures], ["Weight", p.weight], ["Water Resistant", p.waterResistant], ["Fast Charging", p.fastCharging], ["Warranty", p.warranty], ["Approval Status", p.approvalStatus], ["Approved By", p.approvedBy], ["Approved At", p.approvedAt], ["Rejection Reason", p.rejectionReason], ["Merchant ID", p.merchantId], ["Created By", p.createdBy], ["Created At", p.createdAt || p.created_at], ["Updated At", p.updatedAt || p.updated_at]];
+              const status = String(p.approvalStatus || "APPROVED").toUpperCase();
+              const statusStyle = status === "PENDING" ? { background: "#fef3c7", color: "#92400e" } : status === "REJECTED" ? { background: "#fee2e2", color: "#991b1b" } : { background: "#dcfce7", color: "#166534" };
+
+              return (
+                <div>
+                  <div style={{ position: "sticky", top: 0, zIndex: 2, background: "#0c2340", color: "#fff", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div><div style={{ fontSize: "20px", fontWeight: "700" }}>{p.title || p.name || "Product Details"}</div><div style={{ fontSize: "12px", color: "#cbd5e1", marginTop: "3px" }}>Merchant product review</div></div>
+                    <button type="button" onClick={() => setSelectedProductDetails(null)} style={{ background: "rgba(255,255,255,0.12)", color: "#fff", border: "none", borderRadius: "6px", padding: "8px 12px", cursor: "pointer", fontSize: "18px" }}>×</button>
+                  </div>
+
+                  <div style={{ padding: "22px" }}>
+                    <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px", marginBottom: "20px" }}>
+                      <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "10px" }}>Merchant Information</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
+                        <div><b>Merchant:</b> {merchantName}</div><div><b>Email:</b> {merchantEmail}</div><div><b>Merchant ID:</b> {p.merchantId || "-"}</div><div><b>Created By:</b> {p.createdBy || "-"}</div>
+                        <div><b>Status:</b> <span style={{ ...statusStyle, padding: "4px 9px", borderRadius: "999px", fontSize: "12px", fontWeight: "700" }}>{status}</span></div>
+                      </div>
+                    </div>
+
+                    <div style={{ border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px", marginBottom: "20px" }}>
+                      <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "12px" }}>Product Images ({images.length})</div>
+                      {images.length > 0 ? (<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "12px" }}>{images.map((image, index) => (<div key={`${image}-${index}`} style={{ height: "170px", border: "1px solid #e2e8f0", borderRadius: "8px", overflow: "hidden", background: "#f8fafc" }}><img src={image} alt={`${p.title || "Product"} ${index + 1}`} style={{ width: "100%", height: "100%", objectFit: "contain" }} onError={(e) => { e.currentTarget.style.display = "none"; }} /></div>))}</div>) : (<div style={{ padding: "30px", textAlign: "center", background: "#f8fafc", color: "#64748b", borderRadius: "8px" }}>No merchant images uploaded for this product.</div>)}
+                    </div>
+
+                    <div style={{ border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px", marginBottom: "20px" }}>
+                      <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "12px" }}>Product Details & Specifications</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "10px" }}>
+                        {details.map(([label, value]) => (<div key={label} style={{ background: "#f8fafc", borderRadius: "7px", padding: "10px 12px", border: "1px solid #f1f5f9" }}><div style={{ fontSize: "11px", color: "#64748b", marginBottom: "3px" }}>{label}</div><div style={{ fontSize: "13px", color: "#0f172a", fontWeight: "600", wordBreak: "break-word" }}>{value !== undefined && value !== null && String(value).trim() !== "" ? String(value) : "-"}</div></div>))}
+                      </div>
+                    </div>
+
+                    <div style={{ border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px", marginBottom: "20px" }}>
+                      <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "8px" }}>Overview / Description</div>
+                      <div style={{ color: "#475569", lineHeight: 1.6, whiteSpace: "pre-wrap", fontSize: "14px" }}>{p.overview || p.description || "No overview or description provided."}</div>
+                    </div>
+
+                    <div style={{ border: "1px solid #e2e8f0", borderRadius: "10px", padding: "16px", marginBottom: "20px" }}>
+                      <div style={{ fontWeight: "700", color: "#0f172a", marginBottom: "10px" }}>Product Highlights</div>
+                      {highlights.length > 0 ? (<ul style={{ margin: 0, paddingLeft: "20px", color: "#475569", lineHeight: 1.7 }}>{highlights.map((item, index) => (<li key={index}>{typeof item === "string" ? item : item.text || item.title || ""}</li>))}</ul>) : (<div style={{ color: "#64748b" }}>No highlights provided.</div>)}
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", flexWrap: "wrap" }}>
+                      {status === "PENDING" && (<><button type="button" onClick={() => { setSelectedProductDetails(null); handleApproveProduct(p.id || p._id); }} style={{ background: "#16a34a", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}>Approve Product</button><button type="button" onClick={() => { setSelectedProductDetails(null); handleRejectProduct(p.id || p._id); }} style={{ background: "#dc2626", color: "#fff", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}>Reject Product</button></>)}
+                      <button type="button" onClick={() => setSelectedProductDetails(null)} style={{ background: "#e2e8f0", color: "#1e293b", border: "none", padding: "10px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}>Close</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
-          <div className="inv-parties">
-            <div><h4>Bill to</h4><strong>{selectedOrderDetails.user_name}</strong><div>{selectedOrderDetails.user_email}</div></div>
-            <div><h4>Ship to</h4><strong>{selectedOrderDetails.user_name}</strong><div>{selectedOrderDetails.shipping_address}</div></div>
-          </div>
-          <table className="inv-table">
-            <thead><tr><th>#</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Amount</th></tr></thead>
-            <tbody>{selectedOrderDetails.items?.map((item, idx) => (<tr key={idx}><td>{idx + 1}</td><td>{item.title || "Product Item"}</td><td className="num">{item.qty || item.quantity || 1}</td><td className="num">₹{Number(item.price || 0).toLocaleString("en-IN")}</td><td className="num">₹{(Number(item.price || 0) * Number(item.qty || item.quantity || 1)).toLocaleString("en-IN")}</td></tr>))}</tbody>
-          </table>
-          {(() => { const total = Number(selectedOrderDetails.total_amount || 0); const subtotal = Math.round((total / 1.18) * 100) / 100; const gst = Math.round((total - subtotal) * 100) / 100; return (
-              <div className="inv-totals">
-                <div><span>Subtotal</span><span>₹{subtotal.toLocaleString("en-IN")}</span></div>
-                <div><span>GST (18%)</span><span>₹{gst.toLocaleString("en-IN")}</span></div>
-                <div className="inv-grand"><span>Total amount</span><span>₹{total.toLocaleString("en-IN")}</span></div>
-              </div>
-          ); })()}
-          <div className="inv-foot"><p>Thank you for your order.</p><p>This is a computer-generated invoice.</p></div>
         </div>
       )}
 
